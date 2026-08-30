@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All Works — The Design Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="grain-overlay"></div>
+
+<nav class="masthead-nav" id="masthead-nav">
+  <div class="nav-mark" id="nav-mark">THE <span>DESIGN</span> TIMES</div>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+  </ul>
+</nav>
+
+<main class="static-page">
+  <div class="static-page-inner">
+    <a class="back-link" href="index.html">&larr; Back to Home</a>
+
+    <div class="section-eyebrow">Works — Every Project</div>
+    <div class="section-title" id="works-page-title">All Works</div>
+    <div class="section-rule"></div>
+
+    <div class="projects-grid" id="projects-grid"><!-- filled by JS --></div>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script>
+document.getElementById('nav-mark').innerHTML = `THE <span>${CONFIG.maskheadShort}</span> TIMES`;
+document.getElementById('works-page-title').textContent = CONFIG.works.headline;
+
+// --- project diagrams (simple wireframe-style SVGs using ink/muted) ---
+function projectSVG(kind){
+  const ink = 'var(--ink)';
+  const wrap = (inner)=>`<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  switch(kind){
+    case 'browser':
+      return wrap(`<rect x="6" y="8" width="108" height="64" stroke="${ink}" stroke-width="2"/>
+        <line x1="6" y1="22" x2="114" y2="22" stroke="${ink}" stroke-width="2"/>
+        <circle cx="14" cy="15" r="2" fill="${ink}"/><circle cx="21" cy="15" r="2" fill="${ink}"/><circle cx="28" cy="15" r="2" fill="${ink}"/>
+        <rect x="14" y="30" width="40" height="8" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="46" x2="90" y2="46" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="54" x2="76" y2="54" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="62" x2="98" y2="62" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'mobile':
+      return wrap(`<rect x="40" y="6" width="40" height="68" rx="4" stroke="${ink}" stroke-width="2"/>
+        <line x1="46" y1="18" x2="74" y2="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="26" width="28" height="16" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="46" y1="48" x2="74" y2="48" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="46" y1="54" x2="64" y2="54" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="60" width="28" height="6" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'flow':
+      return wrap(`<circle cx="18" cy="40" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="60" cy="18" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="60" cy="62" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="102" cy="40" r="9" stroke="${ink}" stroke-width="2"/>
+        <line x1="26" y1="35" x2="52" y2="22" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="26" y1="45" x2="52" y2="58" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="69" y1="20" x2="93" y2="37" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="69" y1="60" x2="93" y2="43" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'chart':
+      return wrap(`<line x1="12" y1="68" x2="112" y2="68" stroke="${ink}" stroke-width="2"/>
+        <line x1="12" y1="10" x2="12" y2="68" stroke="${ink}" stroke-width="2"/>
+        <rect x="24" y="46" width="12" height="22" fill="${ink}"/>
+        <rect x="44" y="30" width="12" height="38" fill="${ink}"/>
+        <rect x="64" y="52" width="12" height="16" fill="${ink}"/>
+        <rect x="84" y="20" width="12" height="48" fill="${ink}"/>`);
+    case 'nodes':
+      return wrap(`<rect x="10" y="14" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="34" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="82" y="14" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="58" width="30" height="14" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="40" y1="23" x2="46" y2="40" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="82" y1="23" x2="76" y2="40" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="60" y1="52" x2="60" y2="58" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'swatch':
+      return wrap(`<rect x="10" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="36" y="14" width="22" height="22" fill="${ink}"/>
+        <rect x="62" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="88" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="10" y1="52" x2="110" y2="52" stroke="${ink}" stroke-width="3"/>
+        <line x1="10" y1="60" x2="90" y2="60" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="10" y1="66" x2="70" y2="66" stroke="${ink}" stroke-width="1.5"/>`);
+    default: return wrap('');
+  }
+}
+
+const grid = document.getElementById('projects-grid');
+grid.innerHTML = CONFIG.projects.map(p=>`
+  <div class="project-card">
+    <div class="project-thumb">${projectSVG(p.diagram)}</div>
+    <div class="project-body">
+      <div class="project-tag">${p.tag}</div>
+      <div class="project-title">${p.title}</div>
+      <div class="project-blurb">${p.blurb}</div>
+      <a class="project-btn" href="#">View Project &rarr;</a>
+    </div>
+  </div>
+`).join('');
+
+// subtle 3D tilt on project cards
+document.querySelectorAll('.project-card').forEach(card=>{
+  card.addEventListener('mousemove', (e)=>{
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width - 0.5;
+    const y = (e.clientY - r.top)/r.height - 0.5;
+    card.style.transform = `rotateY(${x*8}deg) rotateX(${-y*8}deg) translateY(-2px)`;
+  });
+  card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
+});
+
+// nav shadow on scroll, to match the home page's masthead behavior
+window.addEventListener('scroll', ()=>{
+  document.getElementById('masthead-nav').classList.toggle('scrolled', window.scrollY > 10);
+});
+</script>
+</body>
+</html>
