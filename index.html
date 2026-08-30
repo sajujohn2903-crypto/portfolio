@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Design Times — UI/UX Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   EDITABLE DESIGN TOKENS — change colors / fonts / spacing here
+   ============================================================ */
+:root{
+  --bg:            #E2E3E3;  /* page background — "newsprint" grey-white   */
+  --accent:        #B20202;  /* masthead red — headers & hero title        */
+  --ink:           #363536;  /* icons, diagrams, primary body ink          */
+  --muted:         #B3ADAD;  /* newspaper texture / rules / paper shading  */
+  --paper:         #eceae9;  /* card paper tone (bg + muted blend)         */
+  --ink-soft:      rgba(54,53,54,0.65);
+
+  --font-black:  'Bebas Neue', 'Helvetica Neue', Arial, sans-serif;  /* headers/titles */
+  --font-medium: 'Nunito', 'Helvetica Neue', Arial, sans-serif;      /* sub-headings   */
+  --font-light:  'Nunito', 'Helvetica Neue', Arial, sans-serif;      /* body copy      */
+  --w-black:  400;
+  --w-medium: 400;
+  --w-light:  400;
+
+  /* how many viewport-heights of scroll it takes to fully bring in the
+     NEXT screen. Kept at or under 2, per design spec. */
+  --stop-vh: 2;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html,body{ height:100%; }
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-light);
+  font-weight:var(--w-light);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  cursor:default;
+}
+::selection{ background:var(--accent); color:var(--bg); }
+
+/* thin red scrollbar */
+::-webkit-scrollbar{ width:10px; }
+::-webkit-scrollbar-track{ background:var(--paper); }
+::-webkit-scrollbar-thumb{ background:var(--accent); border:2px solid var(--paper); border-radius:6px; }
+
+a{ color:inherit; text-decoration:none; }
+button{ font-family:inherit; cursor:pointer; border:none; background:none; }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; }
+
+/* ---------- grain / newsprint overlay (sits above everything) ---------- */
+.grain-overlay{
+  position:fixed; inset:0; z-index:1500; pointer-events:none;
+  opacity:0.05; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============================================================
+   NAV / MASTHEAD — fixed above the whole stage
+   ============================================================ */
+.masthead-nav{
+  position:fixed; top:0; left:0; width:100%; z-index:1000;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:18px clamp(20px,5vw,56px);
+  background:var(--bg);
+  border-bottom:3px double var(--ink);
+  transition:box-shadow .3s ease;
+}
+.masthead-nav.scrolled{ box-shadow:0 6px 14px rgba(0,0,0,0.12); }
+.nav-mark{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  font-size:clamp(14px,1.6vw,18px); letter-spacing:0.5px;
+  color:var(--accent); text-transform:uppercase;
+}
+.nav-mark span{ color:var(--ink); }
+.nav-links{ display:flex; gap:clamp(18px,3vw,42px); list-style:none; }
+.nav-links a{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:13px; letter-spacing:1.6px; text-transform:uppercase;
+  color:var(--ink); position:relative; padding-bottom:4px;
+}
+.nav-links a::after{
+  content:''; position:absolute; left:0; bottom:0; width:0; height:2px;
+  background:var(--accent); transition:width .25s ease;
+}
+.nav-links a:hover::after{ width:100%; }
+
+/* ============================================================
+   SCROLL SPACER — its height is the only thing that makes the
+   page scrollable; the stage itself is fixed on top of it.
+   ============================================================ */
+.stage-spacer{ width:100%; }
+
+/* ============================================================
+   STAGE — fixed full-viewport; holds every screen stacked on
+   top of each other. Never itself moves.
+   ============================================================ */
+.stage{
+  position:fixed; inset:0; width:100%; height:100vh;
+  overflow:hidden; background:var(--bg);
+}
+.screen{
+  position:absolute; top:50%; left:50%;
+  width:100%; height:100%;
+  display:flex; align-items:center; justify-content:center;
+  will-change:transform, opacity;
+  transform-origin:center center;
+  background:var(--bg);
+}
+
+/* ---------- HERO SCREEN ---------- */
+#screen-hero{ z-index:1; }
+
+/* marquee backdrop — three rows of "article" cards scrolling sideways
+   forever behind the hero text, alternating direction row to row.
+   Purely decorative (aria-hidden), always blurred, dark charcoal only,
+   never in the way of reading the title. */
+.hero-marquee{
+  position:absolute; inset:0; z-index:1;
+  display:flex; flex-direction:column;
+  overflow:hidden; pointer-events:none;
+  filter:blur(5px);
+}
+.marquee-row{
+  flex:1 1 33.333%; overflow:hidden; display:flex; align-items:center;
+}
+.marquee-track{
+  display:flex; align-items:center; gap:18px; width:max-content;
+  will-change:transform;
+  animation:marqueeScroll linear infinite;
+}
+.marquee-row.dir-right .marquee-track{ animation-direction:reverse; }
+@keyframes marqueeScroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+.marquee-card{
+  flex:0 0 auto; width:190px; height:74%;
+  background:var(--ink); border:1px solid rgba(255,255,255,0.08);
+  padding:14px; display:flex; flex-direction:column; gap:8px; justify-content:center;
+}
+.marquee-card .mc-headline{ display:block; height:12px; width:65%; background:rgba(255,255,255,0.2); }
+.marquee-card .mc-line{ display:block; height:6px; width:100%; background:rgba(255,255,255,0.12); }
+.marquee-card .mc-line.short{ width:45%; }
+
+/* soft spotlight so the hero text always stays legible over the
+   scrolling marquee, regardless of what's passing behind it */
+.hero-scrim{
+  position:absolute; inset:0; z-index:2; pointer-events:none;
+  background:radial-gradient(ellipse 60% 55% at 50% 50%, var(--bg) 45%, rgba(226,227,227,0) 85%);
+}
+
+.hero-content{
+  position:relative; z-index:3; text-align:center; max-width:900px; padding:0 24px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.hero-kicker{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:12px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--ink-soft); margin-bottom:18px;
+  display:flex; align-items:center; justify-content:center; gap:14px;
+}
+.hero-kicker::before, .hero-kicker::after{ content:''; width:36px; height:1px; background:var(--muted); }
+.hero-title{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  color:var(--accent);
+  font-size:clamp(48px,9vw,124px); line-height:0.95; letter-spacing:2px;
+  text-transform:uppercase;
+}
+.hero-role{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:clamp(14px,2vw,20px); letter-spacing:2px; text-transform:uppercase;
+  color:var(--ink); margin-top:16px;
+  border-top:1px solid var(--ink); border-bottom:1px solid var(--ink);
+  display:inline-block; padding:8px 4px;
+}
+.hero-tagline{
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:clamp(15px,1.6vw,19px); color:var(--ink-soft);
+  margin-top:22px; font-style:italic;
+}
+.scroll-cue{
+  position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-medium); font-size:11px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--ink-soft); display:flex; flex-direction:column; align-items:center; gap:8px;
+  z-index:3;
+}
+.scroll-cue span{ display:inline-block; animation:bob 1.8s ease-in-out infinite; }
+@keyframes bob{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(8px);} }
+
+/* shared section heading style used inside screens */
+.section-eyebrow{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:11px; letter-spacing:3px; text-transform:uppercase;
+  color:var(--accent); margin-bottom:10px; text-align:left;
+}
+.section-title{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  color:var(--accent); text-transform:uppercase; text-align:left;
+  font-size:clamp(28px,4.6vw,50px); letter-spacing:1.5px; margin-bottom:6px;
+}
+.section-rule{
+  width:120px; height:3px; background:var(--ink); margin:14px 0 30px;
+  position:relative;
+}
+.section-rule::before,.section-rule::after{
+  content:''; position:absolute; top:-4px; width:100%; height:1px; background:var(--ink);
+}
+.section-rule::before{ top:-6px; } .section-rule::after{ top:6px; }
+
+.screen-inner{ width:min(92%,1180px); max-height:88vh; overflow-y:auto; padding:0 4px; }
+
+/* ---------- ARTICLE CARD — shared "clipping" chrome used by every
+   section: paper background, ink border, offset back-shadow. ---------- */
+.article-card{
+  background:var(--paper);
+  border:1px solid var(--ink);
+  box-shadow:10px 10px 0 var(--muted);
+  padding:clamp(22px,4.4vw,48px);
+  position:relative;
+}
+
+/* ---------- AWARD SCREEN ---------- */
+.award-card{
+  max-width:900px; margin:0 auto;
+  display:grid; grid-template-columns:1.3fr 1fr; gap:clamp(20px,4vw,40px);
+  align-items:center;
+}
+.award-ribbon{
+  position:absolute; top:-14px; right:24px;
+  background:var(--accent); color:var(--bg);
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:11px; letter-spacing:2px; text-transform:uppercase;
+  padding:6px 14px;
+}
+.award-eyebrow{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-soft);
+  border-bottom:1px solid var(--ink); border-top:1px solid var(--ink);
+  padding:6px 0; margin-bottom:16px; text-align:left;
+}
+.award-headline{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  color:var(--accent); font-size:clamp(22px,3.1vw,33px); line-height:1.15;
+  text-align:left; margin-bottom:16px; text-transform:uppercase;
+}
+.award-columns{
+  font-size:14.5px; line-height:1.6; color:var(--ink);
+  font-family:var(--font-light); font-weight:var(--w-light);
+}
+.award-columns p::first-letter{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  font-size:2.4em; float:left; line-height:0.8; padding-right:6px; color:var(--accent);
+}
+.award-columns .no-cap::first-letter{ all:unset; }
+.award-dateline{ font-weight:var(--w-medium); font-family:var(--font-medium); color:var(--ink); }
+.award-more{ margin-top:18px; text-align:left; }
+.award-image{ text-align:center; }
+.award-image-frame{
+  background:var(--muted); border:2px solid var(--ink);
+  padding:6px; transform:rotate(-2deg);
+  box-shadow:6px 6px 0 var(--bg), 6px 6px 0 1px var(--ink);
+  aspect-ratio:4/5; display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+.award-image-frame img{ width:100%; height:100%; object-fit:cover; filter:grayscale(1) contrast(1.1); }
+.award-image-placeholder{ width:100%; height:100%; }
+.award-image figcaption{
+  margin-top:10px; font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-soft);
+}
+.read-more-btn{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:12px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--bg); background:var(--ink);
+  padding:11px 28px; transition:background .2s ease, transform .2s ease;
+}
+.read-more-btn:hover{ background:var(--accent); transform:translateY(-2px); }
+
+/* ---------- PROJECTS GRID ---------- */
+.projects-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:20px;
+  perspective:1000px;
+}
+.project-card{
+  background:var(--paper); border:1px solid var(--ink);
+  padding:0; display:flex; flex-direction:column;
+  transition:transform .12s ease-out, box-shadow .12s ease-out;
+  box-shadow:5px 5px 0 var(--muted);
+  transform-style:preserve-3d;
+}
+.project-card:hover{ box-shadow:9px 9px 0 var(--muted); }
+.project-thumb{
+  width:100%; aspect-ratio:16/10; background:var(--muted);
+  display:flex; align-items:center; justify-content:center;
+  border-bottom:1px solid var(--ink);
+}
+.project-thumb svg{ width:70%; height:70%; }
+.project-body{ padding:16px 16px 20px; display:flex; flex-direction:column; gap:7px; flex:1; }
+.project-tag{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--accent);
+}
+.project-title{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  font-size:18px; color:var(--ink); text-transform:uppercase; line-height:1.15;
+}
+.project-blurb{
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:13px; line-height:1.5; color:var(--ink-soft); flex:1;
+}
+.project-btn{
+  margin-top:6px; align-self:flex-start;
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:11.5px; letter-spacing:1.4px; text-transform:uppercase;
+  color:var(--ink); border-bottom:2px solid var(--accent); padding-bottom:2px;
+  transition:color .2s ease, letter-spacing .2s ease;
+}
+.project-btn:hover{ color:var(--accent); letter-spacing:2px; }
+
+/* ---------- TOOLS GRID ---------- */
+.tools-grid{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:20px;
+}
+.tool-card{
+  background:var(--paper); border:1px solid var(--ink);
+  box-shadow:5px 5px 0 var(--muted);
+  padding:26px 14px; display:flex; flex-direction:column; align-items:center; gap:14px;
+  transition:transform .12s ease-out, box-shadow .12s ease-out;
+}
+.tool-card:hover{ box-shadow:9px 9px 0 var(--muted); transform:translateY(-3px); }
+.tool-icon{
+  width:64px; height:64px;
+  display:flex; align-items:center; justify-content:center;
+}
+.tool-icon svg{ fill:var(--ink); }
+.tool-monogram{
+  width:56px; height:56px; border:2px solid var(--ink); border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-black); font-weight:var(--w-black);
+  font-size:19px; color:var(--ink); letter-spacing:0.5px;
+}
+.tool-name{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:13px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--ink); text-align:center;
+}
+
+/* ---------- SKILLS / ABOUT SCREEN ---------- */
+.skills-panel-inner{
+  display:grid; grid-template-columns:1fr 1.3fr; gap:0;
+  border-top:3px double var(--ink); border-bottom:3px double var(--ink);
+}
+.about-col{ padding:30px 30px 30px 4px; border-right:1px solid var(--ink); display:flex; gap:22px; align-items:flex-start; }
+.about-text{ flex:1.5; min-width:0; }
+.about-text p{
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:14px; line-height:1.7; color:var(--ink); margin-bottom:13px;
+}
+.about-photo{ flex:1; max-width:160px; text-align:center; }
+.about-photo-frame{
+  background:var(--muted); border:2px solid var(--ink);
+  padding:6px; transform:rotate(2deg);
+  box-shadow:6px 6px 0 var(--bg), 6px 6px 0 1px var(--ink);
+  aspect-ratio:4/5; display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+}
+.about-photo-frame img{ width:100%; height:100%; object-fit:cover; filter:grayscale(1) contrast(1.1); }
+.about-photo-placeholder{ width:100%; height:100%; }
+.about-photo figcaption{
+  margin-top:10px; font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-soft);
+}
+.skills-col{ padding:30px 4px 30px 30px; }
+.skill-group{ margin-bottom:20px; }
+.skill-group h4{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--accent);
+  margin-bottom:10px; padding-bottom:4px; border-bottom:1px solid var(--muted);
+}
+.skill-items{ list-style:none; display:flex; flex-wrap:wrap; gap:8px 10px; }
+.skill-items li{
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:13px; color:var(--ink); position:relative; padding-left:14px;
+}
+.skill-items li::before{
+  content:''; position:absolute; left:0; top:6px; width:7px; height:7px;
+  background:var(--ink); transform:rotate(45deg);
+}
+
+/* ---------- CONTACT / FOOTER SCREEN ---------- */
+.contact-card{
+  max-width:640px; margin:0 auto; text-align:center;
+}
+.contact-mark{
+  font-family:var(--font-black); font-weight:var(--w-black);
+  font-size:14px; letter-spacing:1px; color:var(--accent); text-transform:uppercase;
+  margin-bottom:6px;
+}
+.contact-lede{
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:15px; color:var(--ink-soft); max-width:460px; margin:0 auto 24px;
+  line-height:1.6;
+}
+.contact-methods{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:12px 32px; margin-bottom:24px;
+}
+.contact-methods a, .contact-methods span{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:14px; color:var(--ink); border-bottom:1px solid transparent;
+  transition:border-color .2s ease, color .2s ease;
+}
+.contact-methods a:hover{ color:var(--accent); border-color:var(--accent); }
+.contact-socials{ display:flex; justify-content:center; gap:22px; margin-bottom:24px; }
+.contact-socials a{
+  font-family:var(--font-medium); font-weight:var(--w-medium);
+  font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-soft);
+}
+.contact-socials a:hover{ color:var(--accent); }
+.fine-print{
+  border-top:1px solid var(--ink); padding-top:14px; margin-top:4px;
+  font-family:var(--font-light); font-weight:var(--w-light);
+  font-size:11.5px; color:var(--ink-soft); letter-spacing:0.4px;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  .award-card{ grid-template-columns:1fr; }
+  .award-image{ order:2; max-width:200px; margin:0 auto; }
+  .projects-grid{ grid-template-columns:repeat(2,1fr); }
+  .tools-grid{ grid-template-columns:repeat(2,1fr); }
+  .skills-panel-inner{ grid-template-columns:1fr; }
+  .about-col{ border-right:none; border-bottom:1px solid var(--ink); flex-direction:column; }
+  .about-photo{ max-width:140px; align-self:center; }
+}
+@media (max-width:560px){
+  .nav-links{ gap:14px; }
+  .nav-links a{ font-size:11px; letter-spacing:1px; }
+  .projects-grid{ grid-template-columns:1fr; }
+  .tools-grid{ grid-template-columns:1fr; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .scroll-cue span{ animation:none; }
+  .marquee-track{ animation:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="grain-overlay"></div>
+
+<nav class="masthead-nav" id="masthead-nav">
+  <div class="nav-mark" id="nav-mark">THE <span>DESIGN</span> TIMES</div>
+  <ul class="nav-links">
+    <li><a href="#" data-target="works">Works</a></li>
+    <li><a href="#" data-target="about">About Me</a></li>
+    <li><a href="#" data-target="contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- scroll length only; the visible content lives in .stage below -->
+<div class="stage-spacer" id="stage-spacer"></div>
+
+<div class="stage" id="stage">
+
+  <header class="screen" id="screen-hero" data-i="0">
+    <div class="hero-marquee" aria-hidden="true">
+      <div class="marquee-row dir-left"><div class="marquee-track" id="marquee-row-1" style="animation-duration:38s;"></div></div>
+      <div class="marquee-row dir-right"><div class="marquee-track" id="marquee-row-2" style="animation-duration:52s;"></div></div>
+      <div class="marquee-row dir-left"><div class="marquee-track" id="marquee-row-3" style="animation-duration:33s;"></div></div>
+    </div>
+    <div class="hero-scrim" aria-hidden="true"></div>
+    <div class="hero-content" id="hero-content">
+      <div class="hero-kicker" id="hero-kicker">Est. 2024 — Vol. I</div>
+      <h1 class="hero-title" id="hero-title">Name</h1>
+      <div class="hero-role" id="hero-role">Role</div>
+      <p class="hero-tagline" id="hero-tagline">Tagline</p>
+    </div>
+    <div class="scroll-cue" id="scroll-cue"><span>&#8595;</span>Scroll to read the story</div>
+  </header>
+
+  <section class="screen" id="screen-award" data-i="1">
+    <div class="award-card article-card">
+      <div class="award-ribbon" id="award-ribbon">Award</div>
+      <div class="award-content">
+        <div class="award-eyebrow" id="award-eyebrow">Breaking — Design News</div>
+        <h2 class="award-headline" id="award-headline">Headline</h2>
+        <div class="award-columns" id="award-columns"><!-- filled by JS --></div>
+        <div class="award-more">
+          <button class="read-more-btn" id="award-read-more">Read the Article</button>
+        </div>
+      </div>
+      <figure class="award-image">
+        <div class="award-image-frame">
+          <img id="award-photo-img" alt="" style="display:none;">
+          <div class="award-image-placeholder" id="award-photo-placeholder"></div>
+        </div>
+        <figcaption id="award-photo-caption"></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <main style="display:contents;">
+    <section class="screen" id="screen-works" data-i="2">
+      <div class="screen-inner">
+        <div class="article-card">
+          <div class="section-eyebrow">Works — Six Featured Stories</div>
+          <div class="section-title">Selected Projects</div>
+          <div class="section-rule"></div>
+          <div class="projects-grid" id="projects-grid"><!-- filled by JS --></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-about" data-i="3">
+      <div class="screen-inner">
+        <div class="article-card">
+          <div class="section-eyebrow">Profile</div>
+          <div class="section-title">About &amp; Expertise</div>
+          <div class="section-rule"></div>
+          <div class="skills-panel-inner">
+            <div class="about-col">
+              <div class="about-text" id="about-col"><!-- filled by JS --></div>
+              <figure class="about-photo">
+                <div class="about-photo-frame">
+                  <img id="about-photo-img" alt="" style="display:none;">
+                  <div class="about-photo-placeholder" id="about-photo-placeholder"></div>
+                </div>
+                <figcaption id="about-photo-caption"></figcaption>
+              </figure>
+            </div>
+            <div class="skills-col" id="skills-col"><!-- filled by JS --></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-tools" data-i="4">
+      <div class="screen-inner">
+        <div class="article-card">
+          <div class="section-eyebrow">Toolkit</div>
+          <div class="section-title">Tools I Use</div>
+          <div class="section-rule"></div>
+          <div class="tools-grid" id="tools-grid"><!-- filled by JS --></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="screen" id="screen-contact" data-i="5">
+    <div class="screen-inner">
+      <div class="article-card contact-card">
+        <div class="contact-mark" id="contact-mark">The Design Times</div>
+        <p class="contact-lede" id="contact-lede">Get in touch</p>
+        <div class="contact-methods" id="contact-methods"><!-- filled by JS --></div>
+        <div class="contact-socials" id="contact-socials"><!-- filled by JS --></div>
+        <div class="fine-print" id="fine-print">&copy; Design Times</div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+/* ================================================================
+   EDIT EVERYTHING HERE — this single object drives the whole site.
+   Change names, copy, projects, skills and contact details freely.
+   ================================================================ */
+const CONFIG = {
+  name: "John Saju",
+  role: "UI/UX Designer & Visual Storyteller",
+  tagline: "Crafting interfaces worth reading twice.",
+  issueLine: "Est. 2024 — Vol. I, No. 07",
+  maskheadShort: "JO",
+
+  award: {
+    ribbon: "Award",
+    eyebrow: "Breaking — Design News",
+    headline: "Young Designer Wins Design Institute Award",
+    dateline: "BELFAST, 2025 —",
+    excerpt: "Led the design direction for a group project that went on to win the Institute Designers Ireland Award 2025 for Best Service Design Project.",
+    excerpt2: "Judges praised his ability to translate complex systems into interfaces that feel almost inevitable: simple, humane, and quietly confident.",
+    fullText: [
+      "An experience that strengthened my collaborative skills and ability to design at both strategic and detailed levels.",
+      "\u201cGood design disappears,\u201d Saju said in his acceptance remarks. \u201cThe goal was never to make something look clever — it was to make the right decision the easiest one to make.\u201d",
+      "The committee singled out his research process, which combined direct field observation with rapid, disposable prototyping — a habit he credits with keeping his work honest."
+    ],
+    photo: {
+      // Swap this for a real photo any time — set url to an image link
+      // (e.g. from the award ceremony) and it will be used automatically.
+      url: "",
+      caption: "Photograph: Award Ceremony 2025"
+    }
+  },
+
+  projects: [
+    { tag:"Fintech · Product", title:"Ledger", blurb:"A redesigned expense workflow that cut approval time for finance teams by more than half.", diagram:"browser" },
+    { tag:"Healthcare · App", title:"Pulse", blurb:"A patient intake app rebuilt around clarity, reducing form abandonment in early trials.", diagram:"mobile" },
+    { tag:"Civic · Platform", title:"Commons", blurb:"A public services portal connecting twelve departments behind one consistent interface.", diagram:"flow" },
+    { tag:"Data · Dashboard", title:"Meridian", blurb:"An operations dashboard turning noisy telemetry into a handful of decisions worth making.", diagram:"chart" },
+    { tag:"Research · System", title:"Fieldnote", blurb:"A lightweight research repository built for teams who never had time to file their notes.", diagram:"nodes" },
+    { tag:"Brand · Design System", title:"Typeset", blurb:"A component and type system unifying six product teams under one visual language.", diagram:"swatch" }
+  ],
+
+  about: [
+    "I am a UI/UX designer passionate about creating meaningful, user-centred design solutions that truly address real needs.",
+    "As an empathic thinker and natural problem-solver, I enjoy understanding users deeply and turning insights into intuitive, well-crafted experiences. I served as the designer for a group project that won the Ireland Designer Institute Award 2025 for Best Service Design Project, a milestone that strengthened my ability to collaborate and design at both strategic and detailed levels.",
+    "I completed my master\u2019s in UX Design from Ulster University in Belfast, where I refined my skills in research, interaction design, and service design. Before that, I earned my undergraduate degree in Animation and Visual Effects from Mahatma Gandhi University in Kerala, India, which built my foundation in visual storytelling and aesthetics.",
+    "I combine creativity, empathy, and evidence-based thinking to design solutions that are not only functional but also meaningful and engaging."
+  ],
+
+  aboutPhoto: {
+    // Swap this for a real photo any time — replace the src on the
+    // <img id="about-photo-img"> tag, or point this url at your image
+    // and it will be used automatically.
+    url: "",
+    caption: "John Saju, UI/UX Designer"
+  },
+
+  skills: [
+    { name:"Design", items:["Interaction Design","Design Systems","Information Architecture","Visual Design"] },
+    { name:"Prototyping", items:["Figma"] },
+    { name:"Research", items:["Usability Testing","Field Studies","Journey Mapping","A/B Testing"] },
+    { name:"Bonus Skills", items:["Video Editing","Motion Design","Graphic Design"] }
+  ],
+
+  tools: [
+    { name:"Figma", logo:"figma" },
+    { name:"Adobe Photoshop", logo:"photoshop" },
+    { name:"Premiere Pro", logo:"premiere" },
+    { name:"After Effects", logo:"aftereffects" }
+  ],
+
+  contact: {
+    lede: "Have a project? A suggestion? Or just wanna hire me? Reach out right now.",
+    email: "sajujohn2903@gmail.com",
+    phone: "",
+    location: "Belfast, Northern Ireland",
+    socials: [
+      { label:"LinkedIn", url:"#" },
+      { label:"Dribbble", url:"#" },
+      { label:"Instagram", url:"#" }
+    ],
+    finePrint: `© ${new Date().getFullYear()} The Design Times. All rights reserved. Printed digitally, read anywhere.`
+  },
+
+  colors: { bg:"#E2E3E3", accent:"#B20202", ink:"#363536", muted:"#B3ADAD" }
+};
+
+/* ================================================================
+   RENDER — builds the DOM from CONFIG above. No need to edit below
+   unless you want to change structure/behaviour.
+   ================================================================ */
+document.getElementById('nav-mark').innerHTML = `THE <span>${CONFIG.maskheadShort}</span> TIMES`;
+document.getElementById('hero-kicker').textContent = CONFIG.issueLine;
+document.getElementById('hero-title').textContent = CONFIG.name;
+document.getElementById('hero-role').textContent = CONFIG.role;
+document.getElementById('hero-tagline').textContent = CONFIG.tagline;
+
+// --- marquee background (blurred, decorative, behind hero text) ---
+// Builds a strip of "article" placeholder cards for one row, then
+// duplicates the strip once — that's what makes the infinite scroll
+// loop seamlessly (translateX(-50%) lines up exactly with the start).
+function buildMarqueeCard(){
+  const lineCount = 2 + Math.floor(Math.random()*2);
+  let inner = '<span class="mc-headline"></span>';
+  for(let i=0;i<lineCount;i++){
+    const short = (i === lineCount-1 && Math.random()>0.5) ? ' short' : '';
+    inner += `<span class="mc-line${short}"></span>`;
+  }
+  return `<div class="marquee-card">${inner}</div>`;
+}
+function initHeroMarquee(){
+  document.querySelectorAll('.marquee-track').forEach(track=>{
+    let strip = '';
+    for(let i=0;i<8;i++) strip += buildMarqueeCard();
+    track.innerHTML = strip + strip; // duplicate for the seamless loop
+  });
+}
+initHeroMarquee();
+
+// --- award card ---
+const A = CONFIG.award;
+document.getElementById('award-ribbon').textContent = A.ribbon;
+document.getElementById('award-eyebrow').textContent = A.eyebrow;
+document.getElementById('award-headline').textContent = A.headline;
+const awardCols = document.getElementById('award-columns');
+awardCols.innerHTML = `
+  <p><span class="award-dateline">${A.dateline}</span> ${A.excerpt}</p>
+  <p class="no-cap">${A.excerpt2}</p>
+`;
+const readMoreBtn = document.getElementById('award-read-more');
+let awardExpanded = false;
+readMoreBtn.addEventListener('click', ()=>{
+  awardExpanded = !awardExpanded;
+  if(awardExpanded){
+    const extra = document.createElement('div');
+    extra.id = 'award-extra';
+    extra.style.marginTop = '16px';
+    extra.style.fontFamily = "var(--font-light)";
+    extra.style.fontSize = '14px';
+    extra.style.lineHeight = '1.6';
+    extra.style.maxHeight = '30vh';
+    extra.style.overflowY = 'auto';
+    extra.innerHTML = A.fullText.map(p=>`<p style="margin-bottom:12px;">${p}</p>`).join('');
+    document.querySelector('.award-content').insertBefore(extra, document.querySelector('.award-more'));
+    readMoreBtn.textContent = 'Show Less';
+  } else {
+    const extra = document.getElementById('award-extra');
+    if(extra) extra.remove();
+    readMoreBtn.textContent = 'Read the Article';
+  }
+});
+
+// --- award photo (uses a real photo if award.photo.url is set, otherwise a drawn placeholder) ---
+const awardPhotoImg = document.getElementById('award-photo-img');
+const awardPhotoPlaceholder = document.getElementById('award-photo-placeholder');
+document.getElementById('award-photo-caption').textContent = A.photo.caption;
+if(A.photo.url){
+  awardPhotoImg.src = A.photo.url;
+  awardPhotoImg.style.display = 'block';
+  awardPhotoPlaceholder.style.display = 'none';
+} else {
+  awardPhotoPlaceholder.innerHTML = `
+    <svg viewBox="0 0 100 125" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+      <rect width="100" height="125" fill="var(--muted)"/>
+      <circle cx="50" cy="40" r="18" fill="none" stroke="var(--ink)" stroke-width="4" opacity="0.85"/>
+      <path d="M40 56 L30 92 L50 82 L70 92 L60 56" fill="var(--ink)" opacity="0.85"/>
+    </svg>`;
+}
+
+// --- project diagrams (simple wireframe-style SVGs using ink/muted) ---
+function projectSVG(kind){
+  const ink = 'var(--ink)';
+  const wrap = (inner)=>`<svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+  switch(kind){
+    case 'browser':
+      return wrap(`<rect x="6" y="8" width="108" height="64" stroke="${ink}" stroke-width="2"/>
+        <line x1="6" y1="22" x2="114" y2="22" stroke="${ink}" stroke-width="2"/>
+        <circle cx="14" cy="15" r="2" fill="${ink}"/><circle cx="21" cy="15" r="2" fill="${ink}"/><circle cx="28" cy="15" r="2" fill="${ink}"/>
+        <rect x="14" y="30" width="40" height="8" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="46" x2="90" y2="46" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="54" x2="76" y2="54" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="14" y1="62" x2="98" y2="62" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'mobile':
+      return wrap(`<rect x="40" y="6" width="40" height="68" rx="4" stroke="${ink}" stroke-width="2"/>
+        <line x1="46" y1="18" x2="74" y2="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="26" width="28" height="16" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="46" y1="48" x2="74" y2="48" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="46" y1="54" x2="64" y2="54" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="60" width="28" height="6" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'flow':
+      return wrap(`<circle cx="18" cy="40" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="60" cy="18" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="60" cy="62" r="9" stroke="${ink}" stroke-width="2"/>
+        <circle cx="102" cy="40" r="9" stroke="${ink}" stroke-width="2"/>
+        <line x1="26" y1="35" x2="52" y2="22" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="26" y1="45" x2="52" y2="58" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="69" y1="20" x2="93" y2="37" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="69" y1="60" x2="93" y2="43" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'chart':
+      return wrap(`<line x1="12" y1="68" x2="112" y2="68" stroke="${ink}" stroke-width="2"/>
+        <line x1="12" y1="10" x2="12" y2="68" stroke="${ink}" stroke-width="2"/>
+        <rect x="24" y="46" width="12" height="22" fill="${ink}"/>
+        <rect x="44" y="30" width="12" height="38" fill="${ink}"/>
+        <rect x="64" y="52" width="12" height="16" fill="${ink}"/>
+        <rect x="84" y="20" width="12" height="48" fill="${ink}"/>`);
+    case 'nodes':
+      return wrap(`<rect x="10" y="14" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="34" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="82" y="14" width="30" height="18" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="46" y="58" width="30" height="14" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="40" y1="23" x2="46" y2="40" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="82" y1="23" x2="76" y2="40" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="60" y1="52" x2="60" y2="58" stroke="${ink}" stroke-width="1.5"/>`);
+    case 'swatch':
+      return wrap(`<rect x="10" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="36" y="14" width="22" height="22" fill="${ink}"/>
+        <rect x="62" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <rect x="88" y="14" width="22" height="22" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="10" y1="52" x2="110" y2="52" stroke="${ink}" stroke-width="3"/>
+        <line x1="10" y1="60" x2="90" y2="60" stroke="${ink}" stroke-width="1.5"/>
+        <line x1="10" y1="66" x2="70" y2="66" stroke="${ink}" stroke-width="1.5"/>`);
+    default: return wrap('');
+  }
+}
+
+const grid = document.getElementById('projects-grid');
+grid.innerHTML = CONFIG.projects.map(p=>`
+  <div class="project-card">
+    <div class="project-thumb">${projectSVG(p.diagram)}</div>
+    <div class="project-body">
+      <div class="project-tag">${p.tag}</div>
+      <div class="project-title">${p.title}</div>
+      <div class="project-blurb">${p.blurb}</div>
+      <a class="project-btn" href="#">View Project &rarr;</a>
+    </div>
+  </div>
+`).join('');
+
+// subtle 3D tilt on project cards
+document.querySelectorAll('.project-card').forEach(card=>{
+  card.addEventListener('mousemove', (e)=>{
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width - 0.5;
+    const y = (e.clientY - r.top)/r.height - 0.5;
+    card.style.transform = `rotateY(${x*8}deg) rotateX(${-y*8}deg) translateY(-2px)`;
+  });
+  card.addEventListener('mouseleave', ()=>{ card.style.transform = ''; });
+});
+
+// --- about + skills ---
+document.getElementById('about-col').innerHTML = CONFIG.about.map(p=>`<p>${p}</p>`).join('');
+
+// --- about photo (uses a real photo if aboutPhoto.url is set, otherwise a drawn placeholder) ---
+const photoImg = document.getElementById('about-photo-img');
+const photoPlaceholder = document.getElementById('about-photo-placeholder');
+document.getElementById('about-photo-caption').textContent = CONFIG.aboutPhoto.caption;
+if(CONFIG.aboutPhoto.url){
+  photoImg.src = CONFIG.aboutPhoto.url;
+  photoImg.style.display = 'block';
+  photoPlaceholder.style.display = 'none';
+} else {
+  photoPlaceholder.innerHTML = `
+    <svg viewBox="0 0 100 125" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
+      <rect width="100" height="125" fill="var(--muted)"/>
+      <circle cx="50" cy="46" r="22" fill="var(--ink)" opacity="0.85"/>
+      <path d="M10 125 C10 90 30 76 50 76 C70 76 90 90 90 125 Z" fill="var(--ink)" opacity="0.85"/>
+    </svg>`;
+}
+document.getElementById('skills-col').innerHTML = CONFIG.skills.map(g=>`
+  <div class="skill-group">
+    <h4>${g.name}</h4>
+    <ul class="skill-items">${g.items.map(i=>`<li>${i}</li>`).join('')}</ul>
+  </div>
+`).join('');
+
+// --- tools (monochrome icons — a geometric mark for Figma, Adobe-style
+// two-letter monogram badges for the Adobe apps, all in the ink color) ---
+function toolIcon(logo){
+  if(logo === 'figma'){
+    return `<svg viewBox="0 0 16 24" style="width:32px;height:48px;">
+      <path d="M0,8 L0,4 A4,4 0 0 1 8,4 L8,8 Z"/>
+      <rect x="0" y="8" width="8" height="8"/>
+      <path d="M0,16 L8,16 L8,20 A4,4 0 0 1 0,20 Z"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="12" cy="20" r="4"/>
+    </svg>`;
+  }
+  const monograms = { photoshop:'Ps', premiere:'Pr', aftereffects:'Ae' };
+  return `<div class="tool-monogram">${monograms[logo] || '?'}</div>`;
+}
+document.getElementById('tools-grid').innerHTML = CONFIG.tools.map(t=>`
+  <div class="tool-card">
+    <div class="tool-icon">${toolIcon(t.logo)}</div>
+    <div class="tool-name">${t.name}</div>
+  </div>
+`).join('');
+
+// --- contact / footer ---
+const C = CONFIG.contact;
+document.getElementById('contact-mark').textContent = CONFIG.maskheadShort ? `The ${CONFIG.maskheadShort} Times` : 'Get in Touch';
+document.getElementById('contact-lede').textContent = C.lede;
+document.getElementById('contact-methods').innerHTML = `
+  <a href="mailto:${C.email}">${C.email}</a>
+  <span>${C.phone}</span>
+  <span>${C.location}</span>
+`;
+document.getElementById('contact-socials').innerHTML = C.socials.map(s=>`<a href="${s.url}">${s.label}</a>`).join('');
+document.getElementById('fine-print').textContent = C.finePrint;
+
+/* ================================================================
+   CARD-STACK SCROLL ENGINE
+   Screens are numbered 0..N (hero=0). Screen i (i>=1) glides up
+   over screen i-1 as the user scrolls through segment
+   [(i-1)*L, i*L] of total scroll, and simply stacks on top of it —
+   every screen is fully opaque, so the one underneath is hidden
+   just by being physically covered, no fade or blur involved.
+   Scrolling back up runs the exact same math in reverse, so each
+   screen glides back down off the stack in order.
+   ================================================================ */
+const stage = document.getElementById('stage');
+const spacer = document.getElementById('stage-spacer');
+const nav = document.getElementById('masthead-nav');
+const scrollCue = document.getElementById('scroll-cue');
+const screens = Array.from(document.querySelectorAll('.screen'))
+  .sort((a,b)=> +a.dataset.i - +b.dataset.i);
+
+function getStopLen(){
+  return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stop-vh')) * window.innerHeight;
+}
+
+function sizeSpacer(){
+  const vh = window.innerHeight;
+  const L = getStopLen();
+  const transitions = screens.length - 1; // number of "glide in" transitions
+  spacer.style.height = (transitions * L + vh) + 'px';
+}
+window.addEventListener('resize', sizeSpacer);
+sizeSpacer();
+
+const panelIndexMap = { works:2, about:3, contact:5 };
+document.querySelectorAll('.nav-links a').forEach(link=>{
+  link.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const idx = panelIndexMap[link.dataset.target];
+    const L = getStopLen();
+    const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 0);
+    const target = Math.min(idx * L, maxScroll);
+    window.scrollTo({ top: target, behavior:'smooth' });
+  });
+});
+
+function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+// Fast at the start, then eases off smoothly into place — no overshoot,
+// no bounce, just a clean settle onto the stack.
+function easeOutExpo(t){
+  if(t <= 0) return 0;
+  if(t >= 1) return 1;
+  return 1 - Math.pow(2, -8 * t);
+}
+
+function updateStage(){
+  const vh = window.innerHeight;
+  const L = getStopLen();
+  const localScroll = window.scrollY;
+
+  screens.forEach((screen, i)=>{
+    let p; // own "glide in" progress, 0..1 (raw scroll fraction)
+    if(i === 0){
+      p = 1; // hero is present from the start
+    } else {
+      const s = localScroll - (i-1)*L;
+      p = clamp01(s / L);
+    }
+    const eased = easeOutExpo(p); // fast in, smooth settle — see easeOutExpo above
+    const translateY = (1 - eased) * 100;
+    const scaleEnter = 0.96 + 0.04 * eased; // a touch of pop as it settles into the stack
+
+    screen.style.transform = `translate(-50%,-50%) translateY(${translateY}%) scale(${scaleEnter})`;
+    screen.style.opacity = 1; // fully opaque — it simply stacks on top, no fading
+    screen.style.zIndex = i + 1;
+
+    // only the screen that has fully arrived (and isn't yet covered by
+    // the next one) should be clickable
+    let q = 0;
+    if(i < screens.length - 1){
+      const sNext = localScroll - i*L;
+      q = clamp01(sNext / L);
+    }
+    screen.style.pointerEvents = (p > 0.6 && q < 0.4) ? 'auto' : 'none';
+  });
+
+  // hero scroll cue fades as the award screen starts covering it
+  const heroQ = screens.length > 1 ? clamp01(localScroll / L) : 0;
+  scrollCue.style.opacity = 1 - heroQ;
+
+  nav.classList.toggle('scrolled', window.scrollY > 10);
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  updateStage();
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
