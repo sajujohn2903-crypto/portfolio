@@ -299,7 +299,7 @@ document.getElementById('contact-mark').textContent = CONFIG.maskheadShort ? `Th
 document.getElementById('contact-lede').textContent = C.lede;
 document.getElementById('contact-methods').innerHTML = `
   <a href="mailto:${C.email}">${C.email}</a>
-  <span>${C.phone}</span>
+  ${C.phone ? `<span>${C.phone}</span>` : ''}
   <span>${C.location}</span>
 `;
 document.getElementById('contact-socials').innerHTML = C.socials.map(s=>`<a href="${s.url}">${s.label}</a>`).join('');
